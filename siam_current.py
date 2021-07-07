@@ -39,6 +39,10 @@ import matplotlib.pyplot as plt
 def DotCurrentData(n_leads, nelecs, timestop, deltat, mu, V_gate, prefix = "", verbose = 0):
     '''
     More flexible version of siam.py DotDCurrentWrapper with inputs allowing tuning of nelecs, mu, Vgate
+    
+    TODO:
+    - make so thyb is turned on, not bias
+    - get initial state of imp, including occupancy
 
     Walks thru all the steps for plotting current thru a SIAM. Impurity is a quantum dot
     - construct the biasless hamiltonian, 1e and 2e parts
@@ -69,24 +73,31 @@ def DotCurrentData(n_leads, nelecs, timestop, deltat, mu, V_gate, prefix = "", v
 
     # physical params, should always be floats
     V_leads = 1.0; # hopping
-    V_imp_leads = 0.4; # hopping
-    V_bias = 0; # wait till later to turn on current
+    V_imp_leads = 0.0; # allows current flow
+    V_bias = -0.005; # induces current
     # chemical potential left as tunable
     # gate voltage on dot left as tunable
     U = 1.0; # hubbard repulsion
     params = V_leads, V_imp_leads, V_bias, mu, V_gate, U;
+    
+    # prep dot state w/ magntic field in direction nhat (theta, phi=0)
+    hprep = np.zeros((norbs, norbs));
+    B = 100; # magnetic field strength
+    theta = 0;
+    hprep[0,1] = B*np.sin(theta)/2; # implement the mag field
+    hprep[1,0] = B*np.sin(theta)/2;
+    hprep[0,0] = B*np.cos(theta)/2;
+    hprep[1,1] = -B*np.cos(theta)/2;
+    if (verbose > 2): print("h_prep = \n", hprep);
 
     # get h1e, h2e, and scf implementation of SIAM with dot as impurity
-    h1e, h2e, mol, dotscf = siam.dot_model(n_leads, n_imp_sites, norbs, nelecs, params, verbose = verbose);
+    h1e, h2e, hdot, mol, dotscf = siam.dot_model(n_leads, n_imp_sites, norbs, nelecs, params, verbose = verbose);
     
     # from scf instance, do FCI
     E_fci, v_fci = siam.scf_FCI(mol, dotscf, verbose = verbose);
-
-    # prepare in dynamic state by turning on bias
-    V_bias = -0.005;
-    h1e = siam.start_bias(V_bias, imp_i,h1e);
-    if(verbose > 2):
-        print(h1e)
+    
+    # allow dynamics by turning on hopping onto dot
+    V_imp_leads = 0.4
 
     # from fci gd state, do time propagation
     timevals, energyvals, currentvals = td.TimeProp(h1e, h2e, v_fci, mol, dotscf, timestop, deltat, imp_i, V_imp_leads, kernel_mode = "plot", verbose = verbose);
@@ -453,7 +464,5 @@ def DotDataVsVgate():
 
 if __name__ == "__main__":
 
-    PlotdtdE();
     
-    # TODO: get better freq resolution on dot current vs Vgate
-    #DotDataVsVgate();
+    pass;

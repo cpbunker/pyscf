@@ -253,6 +253,20 @@ def dot_model(nleads, nsites, norbs, nelecs, physical_params,verbose = 0):
     Impurity hamiltonian:
     H_imp = H_dot = -V_g sum_i n_i + U n_{i uparrow} n_{i downarrow}
     where i are impurity sites
+    
+    Args:
+    - nleads, tuple of ints of lead sites on left, right
+    - nsites, int, num impurity sites
+    - norbs, int, total num spin orbs
+    - nelecs, tuple of number es, 0 due to All spin up formalism
+    - physical params, tuple of t, thyb, Vbias, mu, Vgate, U
+    
+    Returns: tuple of
+    h1e, 1e part of siam ham
+    h2e, 2e part of siam ham
+    himp, dot part of siam ham only (tuple of 1e, 2e parts)
+    mol, gto.mol object which holds some physical params
+    scf inst, holds physics: h1e, h2e, mo coeffs etc
     '''
     
     # unpack inputs
@@ -277,6 +291,7 @@ def dot_model(nleads, nsites, norbs, nelecs, physical_params,verbose = 0):
         print("\n- Nonzero h2e elements = ");
     hd2e = h_dot_2e(U,nsites);
     h2e = stitch_h2e(hd2e, nleads, verbose = verbose);
+    himp = hd, hd2e; # dot ham only
     
     #### encode physics of dot model in an SCF obj
     
@@ -299,7 +314,7 @@ def dot_model(nleads, nsites, norbs, nelecs, physical_params,verbose = 0):
     scf_inst.kernel(dm0=(Pa, Pa)); # prints HF gd state but this number is meaningless
                                    # what matter is h1e, h2e are now encoded in this scf instance
         
-    return h1e, h2e, mol, scf_inst;
+    return h1e, h2e, himp, mol, scf_inst;
     
     
 def mol_model(nleads, nsites, norbs, nelecs, physical_params,verbose = 0):
