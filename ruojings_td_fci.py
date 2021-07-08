@@ -12,7 +12,7 @@ einsum = lib.einsum
 ################################################################
 #### util functions
 
-def make_hop(eris, norb, nelec):
+def make_hop(eris, norb, nelec): # this drives updting of ci wf
     h2e = direct_uhf.absorb_h1e(eris.h1e, eris.g2e, norb, nelec,.5)
     def _hop(c):
         return direct_uhf.contract_2e(h2e, c, norb, nelec)
@@ -24,8 +24,8 @@ def compute_update(ci, eris, h, RK=4):
     di1 = -hop(ci.r)
     if RK == 1:
         return dr1, di1
-    if RK == 4:
-        r = ci.r+dr1*h*0.5
+    if RK == 4: # given, r, dr1 compute 4th order RK for dr, ie update of real part of ci wf
+        r = ci.r+dr1*h*0.5        # and likewise for imag part
         i = ci.i+di1*h*0.5
         norm = np.linalg.norm(r + 1j*i)
         r /= norm
@@ -62,7 +62,7 @@ def compute_energy(d1, d2, eris, time=None):
     Ruojing's code
     Computes <H> by
         1) getting h1e, h2e from eris object
-        2) contracting with density matrix
+        2) contracting with density matrix (NB density matrix is updated at each time step)
 
     I overload this function by passing it eris w/ arb op x stored
     then ruojings code gets <x> for any eris operator x
@@ -97,7 +97,7 @@ def compute_energy(d1, d2, eris, time=None):
     
 def compute_occ(site_i, d1, d2, mocoeffs, norbs):
     '''
-    Compute the occ of the molecular orbital at index i 0<occ,2
+    Compute the occ of the molecular orbital at index i (molecular orb: 0 < occ < 2)
     by encoding n_i as an h1e
     
     Generally to compute stuff follow this formula:
@@ -108,13 +108,30 @@ def compute_occ(site_i, d1, d2, mocoeffs, norbs):
     
     # now put dot occ operator in h1 form
     occ = np.zeros((norbs,norbs));
-    occ[site_i,site_i] = 1;
+    occ[site_i,site_i] = 1; # spin up orb
+    occ[site_i+1, site_i+1] = 1; # spin down orb
     
     # have to store this operator as an eris object
     occ_eris = ERIs(occ, np.zeros((norbs,norbs,norbs,norbs)), mocoeffs)
     occ_val = compute_energy(d1,d2, occ_eris);
     occ_val = np.real(occ_val);
     return occ_val;
+    
+def compute_Sz(site_i, d1, d2, mocoeffs, norbs):
+    '''
+    Compute Sz for the impurity
+    '''
+
+    # now put dot occ operator in h1 form
+    Sz = np.zeros((norbs,norbs));
+    Sz[site_i,site_i] = 1/2; # spin up
+    Sz[site_i+1, site_i+1] = -1/2; # spin down
+
+    # have to store this operator as an eris object
+    Sz_eris = ERIs(Sz, np.zeros((norbs,norbs,norbs,norbs)), mocoeffs)
+    Sz_val = compute_energy(d1,d2, Sz_eris);
+    Sz_val = np.real(Sz_val);
+    return Sz_val;
     
 def compute_current(dot_i,t,d1,d2,mocoeffs,norbs):
 
@@ -133,10 +150,15 @@ def compute_current(dot_i,t,d1,d2,mocoeffs,norbs):
     
 def compute_current_spinblind(dot_i,t,d1,d2,mocoeffs,norbs):
     '''
-    TODO: generalize this to any size dot
+    Compute current through impurity, in ASU formalism
+    
+    Args:
+    dot_i, list, first and last spin orb indices that belong to impurity
+    t, float, t_hyb, hopping on and off impurity
+    d1, d2, density matrices
+    mocoeffs, np arays, coeffs of HF molecular orbs
+    norbs, int, total num spin orbs in system
     '''
-
-    print(dot_i)
 
     # current operator (1e only)
     J = np.zeros((norbs,norbs));
@@ -222,7 +244,7 @@ def kernel_plot(eris, ci, tf, dt, i_dot, t_dot, RK, spinblind, verbose):
     for i in range(N+1):
     
         # density matrices
-        (d1a, d1b), (d2aa, d2ab, d2bb) = ci.compute_rdm12()
+        (d1a, d1b), (d2aa, d2ab, d2bb) = ci.compute_rdm12() # since ci wf updated w/ time, so are density matrices
         d1as.append(d1a)
         d1bs.append(d1b)
         d2aas.append(d2aa)
@@ -240,13 +262,14 @@ def kernel_plot(eris, ci, tf, dt, i_dot, t_dot, RK, spinblind, verbose):
         # compute observables
         Energy = np.real(compute_energy((d1a,d1b),(d2aa,d2ab,d2bb),eris));
         Occupancy = compute_occ(2,(d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb);
+        Sz = compute_Sz(2,(d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb);
         if spinblind: # differt operator for current in spin blind formalism
             Current = compute_current_spinblind(i_dot, t_dot, (d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb);
         else:
             Current = compute_current(i_dot, t_dot, (d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb);
 
         if(verbose > 3):
-            print("    time: ", i*dt, " Occupancy = ", Occupancy);
+            print("    time: ", i*dt, "Energy = ",Energy, " Occupancy = ", Occupancy, "<Sz> = ", Sz);
           
         # fill arrays with observables
         t_vals[i] = i*dt;
@@ -364,6 +387,11 @@ def TimeProp(h1e, h2e, fcivec, mol,  scf_inst, time_stop, time_step, i_dot, t_do
     '''
     Time propagate an FCI gd state
     The physics of the FCI gd state is encoded in an scf instance
+    
+    Kernel is driver of time prop
+    Kernel gets hamiltonian, and ci wf, which is coeffs of slater dets of HF-determined molecular orbs
+    Then updates ci wf at each time step, this in turn updates density matrices
+    Contract density matrices at each time step to compute obervables (e.g. compute_energy, compute_current functions)
     '''
 
     # assertion statements to check inputs

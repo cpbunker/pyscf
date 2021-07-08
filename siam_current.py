@@ -85,31 +85,35 @@ def DotCurrentData(n_leads, nelecs, timestop, deltat, mu, V_gate, prefix = "", v
     
     # prep dot state w/ magntic field in direction nhat (theta, phi=0)
     hprep = np.zeros((norbs, norbs));
-    B = 100; # magnetic field strength
+    B = 20; # magnetic field strength
     theta = 0;
-    hprep[0,1] = B*np.sin(theta)/2; # implement the mag field
-    hprep[1,0] = B*np.sin(theta)/2;
-    hprep[0,0] = B*np.cos(theta)/2;
-    hprep[1,1] = -B*np.cos(theta)/2;
+    hprep[imp_i[0]+0,imp_i[0]+1] = B*np.sin(theta)/2; # implement the mag field
+    hprep[imp_i[0]+1,imp_i[0]+0] = B*np.sin(theta)/2;
+    hprep[imp_i[0]+0,imp_i[0]+0] = B*np.cos(theta)/2;
+    hprep[imp_i[0]+1,imp_i[0]+1] = -B*np.cos(theta)/2;
     if (verbose > 2): print("h_prep = \n", hprep);
+    h1e += hprep;
 
     # from h1e, h2e, get scf implementation of SIAM with dot as impurity
     mol, dotscf = siam.dot_model(h1e, h2e, norbs, nelecs, params, verbose = verbose);
-    
-    print("\nSuccess\n");
-    return;
     
     # from scf instance, do FCI
     E_fci, v_fci = siam.scf_FCI(mol, dotscf, verbose = verbose);
     
     # allow dynamics by turning on hopping onto dot
     V_imp_leads = 0.4
+    new_params = 0.0, V_imp_leads, 0.0, 0.0, 0.0, 0.0;
+    new_h1e, dummy, dummy = siam.dot_hams(n_leads, n_imp_sites, nelecs, new_params, verbose = verbose);
+    h1e += new_h1e; # updated to include thyb
 
     # from fci gd state, do time propagation
     timevals, energyvals, currentvals = td.TimeProp(h1e, h2e, v_fci, mol, dotscf, timestop, deltat, imp_i, V_imp_leads, kernel_mode = "plot", verbose = verbose);
 
     # renormalize current
     currentvals = currentvals*np.pi/abs(V_bias);
+    
+    print("\nSuccess\n");
+    return;
 
     # plot current vs time
     if False:
@@ -478,7 +482,7 @@ if __name__ == "__main__":
     tf = 1.0;
     dt = 0.01;
     mu = 0;
-    Vg = -1.0;
+    Vg = -0.5;
     verbose = 5;
 
     DotCurrentData(nleads, nelecs, tf, dt, mu, Vg, verbose = verbose) ;
