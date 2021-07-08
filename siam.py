@@ -245,11 +245,11 @@ def stitch_h2e(h_imp,n_leads,verbose = 0):
                             print("  h_imp[",i1,i2,i3,i4,"] = ",h_imp[i1,i2,i3,i4]," --> h2e[",i_imp+i1,i_imp+i2,i_imp+i3,i_imp+i4,"]");
                         
     return h; # end stitch h2e
-
-
-def dot_model(nleads, nsites, norbs, nelecs, physical_params,verbose = 0):
+    
+    
+def dot_hams(nleads, nsites, nelecs, physical_params, verbose = 0):
     '''
-    Run whole SIAM machinery, with impurity a very simple dot model
+    Converts physical params into 1e and 2e parts of siam model hamiltonian, with
     Impurity hamiltonian:
     H_imp = H_dot = -V_g sum_i n_i + U n_{i uparrow} n_{i downarrow}
     where i are impurity sites
@@ -257,18 +257,15 @@ def dot_model(nleads, nsites, norbs, nelecs, physical_params,verbose = 0):
     Args:
     - nleads, tuple of ints of lead sites on left, right
     - nsites, int, num impurity sites
-    - norbs, int, total num spin orbs
     - nelecs, tuple of number es, 0 due to All spin up formalism
     - physical params, tuple of t, thyb, Vbias, mu, Vgate, U
-    
-    Returns: tuple of
-    h1e, 1e part of siam ham
-    h2e, 2e part of siam ham
+
+    Returns:
+    h1e, 2d np array, 1e part of siam ham
+    h2e, 2d np array, 2e part of siam ham
     himp, dot part of siam ham only (tuple of 1e, 2e parts)
-    mol, gto.mol object which holds some physical params
-    scf inst, holds physics: h1e, h2e, mo coeffs etc
     '''
-    
+
     # unpack inputs
     V_leads, V_imp_leads, V_bias, mu, V_gate, U = physical_params;
     
@@ -292,7 +289,26 @@ def dot_model(nleads, nsites, norbs, nelecs, physical_params,verbose = 0):
     hd2e = h_dot_2e(U,nsites);
     h2e = stitch_h2e(hd2e, nleads, verbose = verbose);
     himp = hd, hd2e; # dot ham only
+
+    return h1e, h2e, himp; #end dot hams
+
+
+def dot_model(h1e, h2e, norbs, nelecs, physical_params,verbose = 0):
+    '''
+    Run whole SIAM machinery for given  model hamiltonian
     
+    Args:
+    - h1e, 2d np array, 1e part of siam ham
+    - h2e, 2d np array, 2e part of siam ham
+    - norbs, int, total num spin orbs
+    - nelecs, tuple of number es, 0 due to All spin up formalism
+    - physical params, tuple of t, thyb, Vbias, mu, Vgate, U
+    
+    Returns: tuple of
+    mol, gto.mol object which holds some physical params
+    scf inst, holds physics: h1e, h2e, mo coeffs etc
+    '''
+
     #### encode physics of dot model in an SCF obj
     
     # initial guess density matrices
@@ -314,7 +330,7 @@ def dot_model(nleads, nsites, norbs, nelecs, physical_params,verbose = 0):
     scf_inst.kernel(dm0=(Pa, Pa)); # prints HF gd state but this number is meaningless
                                    # what matter is h1e, h2e are now encoded in this scf instance
         
-    return h1e, h2e, himp, mol, scf_inst;
+    return mol, scf_inst;
     
     
 def mol_model(nleads, nsites, norbs, nelecs, physical_params,verbose = 0):

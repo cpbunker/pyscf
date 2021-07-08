@@ -80,6 +80,9 @@ def DotCurrentData(n_leads, nelecs, timestop, deltat, mu, V_gate, prefix = "", v
     U = 1.0; # hubbard repulsion
     params = V_leads, V_imp_leads, V_bias, mu, V_gate, U;
     
+    # get h1e and h2e for siam, h_imp = h_dot
+    h1e, h2e, hdot = siam.dot_hams(n_leads, n_imp_sites, nelecs, params, verbose = verbose);
+    
     # prep dot state w/ magntic field in direction nhat (theta, phi=0)
     hprep = np.zeros((norbs, norbs));
     B = 100; # magnetic field strength
@@ -90,8 +93,11 @@ def DotCurrentData(n_leads, nelecs, timestop, deltat, mu, V_gate, prefix = "", v
     hprep[1,1] = -B*np.cos(theta)/2;
     if (verbose > 2): print("h_prep = \n", hprep);
 
-    # get h1e, h2e, and scf implementation of SIAM with dot as impurity
-    h1e, h2e, hdot, mol, dotscf = siam.dot_model(n_leads, n_imp_sites, norbs, nelecs, params, verbose = verbose);
+    # from h1e, h2e, get scf implementation of SIAM with dot as impurity
+    mol, dotscf = siam.dot_model(h1e, h2e, norbs, nelecs, params, verbose = verbose);
+    
+    print("\nSuccess\n");
+    return;
     
     # from scf instance, do FCI
     E_fci, v_fci = siam.scf_FCI(mol, dotscf, verbose = verbose);
@@ -464,5 +470,15 @@ def DotDataVsVgate():
 
 if __name__ == "__main__":
 
-    
-    pass;
+    # test new implementation of dot current data
+
+    # inputs for dot current data
+    nleads = (2,2);
+    nelecs = (5,0);
+    tf = 1.0;
+    dt = 0.01;
+    mu = 0;
+    Vg = -1.0;
+    verbose = 5;
+
+    DotCurrentData(nleads, nelecs, tf, dt, mu, Vg, verbose = verbose) ;
