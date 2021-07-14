@@ -42,6 +42,7 @@ def DotCurrentData(n_leads, nelecs, timestop, deltat, mu, V_gate, prefix = "", v
     
     TODO:
     - make so thyb is turned on, not bias
+    - allow io of physical inouts
     - get initial state of imp, including occupancy
 
     Walks thru all the steps for plotting current thru a SIAM. Impurity is a quantum dot
