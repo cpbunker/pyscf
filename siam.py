@@ -151,7 +151,7 @@ def h_dot_2e(U,N):
 #######################################################
 #### functions for manipulating basic hamiltonians
 
-def start_bias(V, dot_is, h1e):
+def start_bias(V, dot_is, h1e, verbose = 0):
     '''
     Manipulate a pre stitched h1e by turning on bias on leads
 
@@ -160,7 +160,7 @@ def start_bias(V, dot_is, h1e):
     - dot_is is list of spin orb indices which are part of dot
     '''
 
-    assert(type(dot_is) == type([]) );
+    assert(isinstance(dot_is, list) );
 
     # iter over leads
     for i in range(np.shape(h1e)[0]):
@@ -171,7 +171,7 @@ def start_bias(V, dot_is, h1e):
         elif i > dot_is[-1]:
             h1e[i,i] = -V/2;
 
-    print("start bias",dot_is, "\n", h1e)
+    if(verbose > 2): print("start bias",dot_is, "\n", h1e)
     return h1e;
     
 def stitch_h1e(h_imp, h_imp_leads, h_leads, h_bias, n_leads, verbose = 0):
@@ -234,6 +234,8 @@ def stitch_h2e(h_imp,n_leads,verbose = 0):
     n_spin_orbs = n_imp_sos + n_lead_sos
     
     h = np.zeros((n_spin_orbs,n_spin_orbs,n_spin_orbs,n_spin_orbs));
+    if(verbose > 2):
+        print("\n- Nonzero h2e elements = ");
     
     for i1 in range(n_imp_sos):
         for i2 in range(n_imp_sos):
@@ -280,12 +282,11 @@ def dot_hams(nleads, nsites, nelecs, physical_params, verbose = 0):
     hdl = h_imp_leads(V_imp_leads, nsites); # leads talk to dot
     hd = h_dot_1e(V_gate, nsites); # dot
     h1e = stitch_h1e(hd, hdl, hl, hb, nleads, verbose = verbose); # syntax is imp, imp-leads, leads, bias
+    h1e = start_bias(V_bias, [nleads[0]*2, nleads[0]*2 + 1], h1e, verbose = verbose); # turns on bias
     if(verbose > 2):
         print("\n- Full one electron hamiltonian = \n",h1e);
         
     # 2e hamiltonian only comes from impurity
-    if(verbose > 2):
-        print("\n- Nonzero h2e elements = ");
     hd2e = h_dot_2e(U,nsites);
     h2e = stitch_h2e(hd2e, nleads, verbose = verbose);
     himp = hd, hd2e; # dot ham only

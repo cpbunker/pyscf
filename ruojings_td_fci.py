@@ -7,6 +7,7 @@ import plot
 from pyscf import lib, fci, scf, gto, ao2mo
 from pyscf.fci import direct_uhf, direct_nosym, cistring
 import numpy as np
+import matplotlib.pyplot as plt
 einsum = lib.einsum
 
 ################################################################
@@ -270,7 +271,7 @@ def kernel_plot(eris, ci, tf, dt, i_dot, t_dot, RK, spinblind, verbose):
 
         if(verbose > 3):
             print("    time: ", i*dt, "Energy = ",Energy, " Occupancy = ", Occupancy, "<Sz> = ", Sz);
-          
+
         # fill arrays with observables
         t_vals[i] = i*dt;
         energy_vals[i] = Energy
@@ -512,7 +513,7 @@ def Test():
         h1e[i,i] = V/2
     for i in range(idot+1,norb):
         h1e[i,i] = -V/2
-    tf = 10.0
+    tf = 1.0
     dt = 0.01
     eris = ERIs(h1e, g2e, mf.mo_coeff) # diff h1e than in uhf, thus time dependence
     ci = CIObject(fcivec, norb, nelec)
@@ -521,10 +522,20 @@ def Test():
 
     # normalize vals
     J = J*np.pi/abs(V);
-    E = E/E[0];
+    E = E/E[0] - 1;
     
     # plot current vs time
-    plot.GenericPlot(t,[J, E],labels=["time (dt = "+str(dt)+")","Current*$\pi / |V_{bias}|$","td-FCI through dot impurity"], handles = ["current", "gd state E/$E_{initial}$"]);
+    #plot.GenericPlot(t,[J, E],labels=["time (dt = "+str(dt)+")","J*$\pi / |V_{bias}|$","Dot impurity, 3 left sites, 2 right sites"], handles = ["J", "E/$E_{i} - 1$"]);
+    # plot J, E on different axes
+    fig, axes = plt.subplots(2, sharex = True);
+    axes[0].plot(t, J);
+    axes[0].set_xlabel("time (dt = "+str(dt)+")");
+    axes[0].set_ylabel("J*$\pi / |V_{bias}|$");
+    axes[0].set_title("Dot impurity, 3 left sites, 2 right sites");
+    axes[1].plot(t, E);
+    axes[1].set_xlabel("time (dt = "+str(dt)+")");
+    axes[1].set_ylabel("$E/E_{i} - 1$");
+    plt.show();
 
     return; # end test
     
