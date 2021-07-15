@@ -420,16 +420,13 @@ def TimeProp(h1e, h2e, fcivec, mol,  scf_inst, time_stop, time_step, i_dot, t_do
 ###########################################################################################################
 #### test code and wrapper funcs
 
-def Test():
+def Test(dt = 0.01, tf = 1.0, verbose = 0):
     '''
     sample calculation of SIAM
     Impurity = one level dot
     '''
     
     import functools
-        
-    # top level inputs
-    verbose = 5;
 
     # physical inputs
     ll = 3 # number of left leads
@@ -448,6 +445,7 @@ def Test():
     # remember impurity is just one level dot
     
     # make ground state Hamiltonian with zero bias
+    td = 0.0
     if(verbose):
         print("1. Construct hamiltonian")
     h1e = np.zeros((norb,)*2)
@@ -462,6 +460,11 @@ def Test():
     # g2e needs modification for all up spin
     g2e = np.zeros((norb,)*4)
     g2e[idot,idot,idot,idot] = U
+
+    for i in range(idot): # introduce bias on leads to get td current
+        h1e[i,i] = V/2
+    for i in range(idot+1,norb):
+        h1e[i,i] = -V/2
     
     if(verbose > 2):
         print("- Full one electron hamiltonian:\n", h1e)
@@ -509,12 +512,12 @@ def Test():
     #### do time propagation
     if(verbose):
         print("3. Time propagation")
-    for i in range(idot): # introduce bias on leads to get td current
-        h1e[i,i] = V/2
-    for i in range(idot+1,norb):
-        h1e[i,i] = -V/2
-    tf = 1.0
-    dt = 0.01
+    td = 0.4;
+    h1e[idot, idot+1] = -td;
+    h1e[idot, idot-1] = -td;
+    h1e[idot+1, idot] = -td;
+    h1e[idot-1, idot] = -td;
+        
     eris = ERIs(h1e, g2e, mf.mo_coeff) # diff h1e than in uhf, thus time dependence
     ci = CIObject(fcivec, norb, nelec)
     kernel_mode = "plot"; # tell kernel whether to return density matrices or arrs for plotting

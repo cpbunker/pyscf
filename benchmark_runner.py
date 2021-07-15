@@ -15,5 +15,12 @@ import matplotlib.pyplot as plt
 ##################################################################################
 #### replicate results from ruojing's code with siam_current module (ASU formalism)
 
-ruojings_td_fci.Test();
-siam_current.Test();
+verbose = 5;
+
+#time info
+dt = 0.01;
+tf = 4.0;
+
+# run tests
+ruojings_td_fci.Test(dt = dt, tf = tf, verbose = verbose);
+siam_current.Test(dt = dt, tf = tf, verbose = verbose);
