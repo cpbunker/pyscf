@@ -96,7 +96,7 @@ def compute_energy(d1, d2, eris, time=None):
     e +=        einsum('pQrS,rSpQ',g2e_ab,d2ab)
     return e
     
-def compute_occ(site_i, d1, d2, mocoeffs, norbs):
+def compute_occ(site_i, d1, d2, mocoeffs, norbs, ASU = False):
     '''
     Compute the occ of the molecular orbital at index i (molecular orb: 0 < occ < 2)
     by encoding n_i as an h1e
@@ -107,10 +107,14 @@ def compute_occ(site_i, d1, d2, mocoeffs, norbs):
     - pass eris and density matrices to compute energy
     '''
     
-    # now put dot occ operator in h1 form
-    occ = np.zeros((norbs,norbs));
-    occ[site_i,site_i] = 1; # spin up orb
-    occ[site_i+1, site_i+1] = 1; # spin down orb
+    # put dot occ operator in h1e form, spin free
+    if not ASU:
+        occ = np.zeros((norbs,norbs));
+        occ[site_i,site_i] = 1; 
+    else:
+        occ = np.zeros((norbs,norbs));
+        occ[site_i,site_i] = 1; # spin up orb
+        occ[site_i+1, site_i+1] = 1; # spin down orb
     
     # have to store this operator as an eris object
     occ_eris = ERIs(occ, np.zeros((norbs,norbs,norbs,norbs)), mocoeffs)
@@ -118,15 +122,18 @@ def compute_occ(site_i, d1, d2, mocoeffs, norbs):
     occ_val = np.real(occ_val);
     return occ_val;
     
-def compute_Sz(site_i, d1, d2, mocoeffs, norbs):
+def compute_Sz(site_i, d1, d2, mocoeffs, norbs, ASU = False):
     '''
-    Compute Sz for the impurity
+    Compute Sz for the impurity, ASU formalism
     '''
 
-    # now put dot occ operator in h1 form
-    Sz = np.zeros((norbs,norbs));
-    Sz[site_i,site_i] = 1/2; # spin up
-    Sz[site_i+1, site_i+1] = -1/2; # spin down
+    # put Sz operator in h1e form
+    if not ASU: # Sz meaningless in spin free context
+        Sz = np.zeros((norbs,norbs));
+    else:
+        Sz = np.zeros((norbs,norbs));
+        Sz[site_i,site_i] = 1/2; # spin up
+        Sz[site_i+1, site_i+1] = -1/2; # spin down
 
     # have to store this operator as an eris object
     Sz_eris = ERIs(Sz, np.zeros((norbs,norbs,norbs,norbs)), mocoeffs)
@@ -134,52 +141,35 @@ def compute_Sz(site_i, d1, d2, mocoeffs, norbs):
     Sz_val = np.real(Sz_val);
     return Sz_val;
     
-def compute_current(dot_i,t,d1,d2,mocoeffs,norbs):
+def compute_current(dot_i,t,d1,d2,mocoeffs,norbs, ASU = False):
 
-    # operator
-    J = np.zeros((norbs,norbs));
-    J[dot_i - 1,dot_i] = -t/2;
-    J[dot_i,dot_i - 1] =  t/2;
-    J[dot_i + 1,dot_i] =  t/2;
-    J[dot_i,dot_i + 1] = -t/2;
+    # current operator in spin free formalism
+    if not ASU:
+        J = np.zeros((norbs,norbs));
+        J[dot_i - 1,dot_i] = -t/2;
+        J[dot_i,dot_i - 1] =  t/2;
+        J[dot_i + 1,dot_i] =  t/2;
+        J[dot_i,dot_i + 1] = -t/2;
+
+    else: # in ASU
+        # iter over dot sites to fill current op
+        for doti in range(dot_i[0], dot_i[-1]+1, 2): # doti is up, doti+1 is down # +1 because dot_i is incluse but range is exclusive
+            J = np.zeros((norbs,norbs));
+            J[doti - 2,doti] = -t/2;  # dot up spin to left up spin # left moving is -
+            J[doti+1-2,doti+1] = -t/2; # down to down
+            J[doti,doti - 2] =  t/2; # left up spin to dot up spin # hc of 2 above # right moving is +
+            J[doti+1, doti+1-2] = t/2; # hc
+            J[doti + 2,doti] = t/2;  # up spin to right up spin
+            J[doti+1+2,doti+1] = t/2; # down to down
+            J[doti,doti + 2] =  -t/2; # hc
+            J[doti+1, doti+1+2] = -t/2; # hc
     
     # have to store this operator as an eris object
     J_eris = ERIs(J, np.zeros((norbs,norbs,norbs,norbs)), mocoeffs)
     J_val = compute_energy(d1,d2, J_eris);
-    J_val = np.imag(J_val);
+    J_val = -np.imag(J_val);
     return J_val;
     
-def compute_current_spinblind(dot_i,t,d1,d2,mocoeffs,norbs):
-    '''
-    Compute current through impurity, in ASU formalism
-    
-    Args:
-    dot_i, list, first and last spin orb indices that belong to impurity
-    t, float, t_hyb, hopping on and off impurity
-    d1, d2, density matrices
-    mocoeffs, np arays, coeffs of HF molecular orbs
-    norbs, int, total num spin orbs in system
-    '''
-
-    # current operator (1e only)
-    J = np.zeros((norbs,norbs));
-
-    # iter over dot sites to fill current op
-    for doti in range(dot_i[0], dot_i[-1]+1, 2): # doti is up, doti+1 is down # +1 because dot_i is incluse but range is exclusive
-        J[doti - 2,doti] = -t/2;  # dot up spin to left up spin # left moving is -
-        J[doti+1-2,doti+1] = -t/2; # down to down
-        J[doti,doti - 2] =  t/2; # left up spin to dot up spin # hc of 2 above # right moving is +
-        J[doti+1, doti+1-2] = t/2; # hc
-        J[doti + 2,doti] = t/2;  # up spin to right up spin
-        J[doti+1+2,doti+1] = t/2; # down to down
-        J[doti,doti + 2] =  -t/2; # hc
-        J[doti+1, doti+1+2] = -t/2; # hc
-    
-    # have to store this operator as an eris object
-    J_eris = ERIs(J, np.zeros((norbs,norbs,norbs,norbs)), mocoeffs)
-    J_val = compute_energy(d1,d2, J_eris); # this func of ruojings gets <x> for whatever operator x is stored in eris arg
-    J_val = np.imag(J_val);
-    return J_val;
 
 ################################################################
 #### kernel
@@ -202,6 +192,8 @@ def kernel(mode, eris, ci, tf, dt, RK=4, i_dot = None, t_dot = None, spinblind =
     - dot_i is site (MO) index of the dot, not needed if not doing plot, hence defaults to None
     - t_dot is hopping strength between dot, leads, likewise defaults to None
     - verbose prints helpful debugging stuff
+
+    Returns whatever kernel_std or kernel_plot returns
     '''
 
     
@@ -226,6 +218,10 @@ def kernel_plot(eris, ci, tf, dt, i_dot, t_dot, RK, spinblind, verbose):
     Kernel for getting observables at each time step, for plotting
     Outputs 1d arrays of time, energy, dot occupancy, current
     Access thru calling kernel (see above) with mode=plot
+
+    Returns
+    timevals, 1d arr of time steps
+    observables, tuple of arrs of observable values at each time: E(t), J(t), Occ(t), Sz(t)
     '''
 
     N = int(tf/dt+1e-6)
@@ -238,8 +234,9 @@ def kernel_plot(eris, ci, tf, dt, i_dot, t_dot, RK, spinblind, verbose):
     # return vals
     t_vals = np.zeros(N+1);
     energy_vals = np.zeros(N+1);
-    occ_vals = np.zeros(N+1);
     current_vals = np.zeros(N+1);
+    occ_vals = np.zeros(N+1);
+    Sz_vals = np.zeros(N+1);
     
     # time step loop
     for i in range(N+1):
@@ -261,30 +258,31 @@ def kernel_plot(eris, ci, tf, dt, i_dot, t_dot, RK, spinblind, verbose):
         ci.i = r_imag/norm
         
         # compute observables
-        Energy = np.real(compute_energy((d1a,d1b),(d2aa,d2ab,d2bb),eris));
-        Occupancy = compute_occ(2,(d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb);
-        Sz = compute_Sz(2,(d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb);
-        if spinblind: # differt operator for current in spin blind formalism
-            Current = compute_current_spinblind(i_dot, t_dot, (d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb);
-        else:
-            Current = compute_current(i_dot, t_dot, (d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb);
+        Energy = np.real( compute_energy((d1a,d1b),(d2aa,d2ab,d2bb),eris) );
+        Current = compute_current(i_dot, t_dot, (d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb, ASU = spinblind);
+        Occupancy = compute_occ(2,(d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb, ASU = spinblind);
+        Sz = compute_Sz(2,(d1a,d1b),(d2aa,d2ab,d2bb),eris.mo_coeff, ci.norb, ASU = spinblind);
 
         if(verbose > 3):
-            print("    time: ", i*dt, "Energy = ",Energy, " Occupancy = ", Occupancy, "<Sz> = ", Sz);
+            print("    time: ", i*dt, i_dot, "Energy = ",Energy, " Occupancy = ", Occupancy, "<Sz> = ", Sz);
 
         # fill arrays with observables
         t_vals[i] = i*dt;
-        energy_vals[i] = Energy
-        #occ_vals[i] = Occupancy;
+        energy_vals[i] = Energy;
         current_vals[i] = Current;
-        
-    return t_vals, energy_vals, current_vals ;
+        occ_vals[i] = Occupancy;
+        Sz_vals[i] = Sz;
+
+    observables = energy_vals, current_vals, occ_vals, Sz_vals;
+    return t_vals, observables;
     
 def kernel_std(eris, ci, tf, dt, RK):
     '''
     Kernel for td calc copied straight from ruojing
     Outputs density matrices in form (1e alpha, 1e beta), (2e aa, 2e ab, 2e bb)
     Access thru calling kernel (see above) with mode=std
+
+    Returns density matrices
     '''
     N = int(tf/dt+1e-6)
     d1as = []
@@ -384,15 +382,21 @@ class CIObject():
 ##########################################################################################################
 #### time propagation 
 
-def TimeProp(h1e, h2e, fcivec, mol,  scf_inst, time_stop, time_step, i_dot, t_dot, kernel_mode = "std", verbose = 0):
+def TimeProp(h1e, h2e, fcivec, mol,  scf_inst, time_stop, time_step, i_dot, t_dot, kernel_mode = "plot", verbose = 0):
     '''
-    Time propagate an FCI gd state
+    Time propagate an FCI gd state, w/in ASU formalism
     The physics of the FCI gd state is encoded in an scf instance
     
     Kernel is driver of time prop
     Kernel gets hamiltonian, and ci wf, which is coeffs of slater dets of HF-determined molecular orbs
     Then updates ci wf at each time step, this in turn updates density matrices
     Contract density matrices at each time step to compute obervables (e.g. compute_energy, compute_current functions)
+
+    Set kernel_mode to std to call kernel_std which returns density matrices
+    Set kernel_mode to plot to call kernel_plot which returns arrays of time, observable vals (default)
+
+    Defaults to kernel mode plot, in which case returns
+    timevals, observables (tuple of E(t), J(t), Occ(t), Sz(t) )
     '''
 
     # assertion statements to check inputs
@@ -420,7 +424,7 @@ def TimeProp(h1e, h2e, fcivec, mol,  scf_inst, time_stop, time_step, i_dot, t_do
 ###########################################################################################################
 #### test code and wrapper funcs
 
-def Test(dt = 0.01, tf = 1.0, verbose = 0):
+def Test(nleads, dt = 0.01, tf = 1.0, verbose = 0):
     '''
     sample calculation of SIAM
     Impurity = one level dot
@@ -429,8 +433,8 @@ def Test(dt = 0.01, tf = 1.0, verbose = 0):
     import functools
 
     # physical inputs
-    ll = 3 # number of left leads
-    lr = 2 # number of right leads
+    ll = nleads[0] # number of left leads
+    lr = nleads[1] # number of right leads
     t = 1.0 # lead hopping
     td = 0.4 # dot-lead hopping
     U = 1.0 # dot interaction
@@ -517,11 +521,13 @@ def Test(dt = 0.01, tf = 1.0, verbose = 0):
     h1e[idot, idot-1] = -td;
     h1e[idot+1, idot] = -td;
     h1e[idot-1, idot] = -td;
+    print(h1e);
         
     eris = ERIs(h1e, g2e, mf.mo_coeff) # diff h1e than in uhf, thus time dependence
     ci = CIObject(fcivec, norb, nelec)
     kernel_mode = "plot"; # tell kernel whether to return density matrices or arrs for plotting
-    t, E, J = kernel(kernel_mode, eris, ci, tf, dt, i_dot = idot, t_dot = td, verbose = verbose);
+    t, observables = kernel(kernel_mode, eris, ci, tf, dt, i_dot = idot, t_dot = td, spinblind = False, verbose = verbose);
+    E, J, occ, Sz = observables; # unpack observables
 
     # normalize vals
     J = J*np.pi/abs(V);
@@ -534,7 +540,7 @@ def Test(dt = 0.01, tf = 1.0, verbose = 0):
     axes[0].plot(t, J);
     axes[0].set_xlabel("time (dt = "+str(dt)+")");
     axes[0].set_ylabel("J*$\pi / |V_{bias}|$");
-    axes[0].set_title("Dot impurity, 3 left sites, 2 right sites");
+    axes[0].set_title("Dot impurity, "+str(nleads[0])+" left sites, "+str(nleads[1])+" right sites");
     axes[1].plot(t, E);
     axes[1].set_xlabel("time (dt = "+str(dt)+")");
     axes[1].set_ylabel("$E/E_{i} - 1$");

@@ -118,7 +118,8 @@ def DotCurrentData(n_leads, nelecs, timestop, deltat, phys_params = None, prefix
     h1e += new_h1e; # updated to include thyb
 
     # from fci gd state, do time propagation
-    timevals, energyvals, currentvals = td.TimeProp(h1e, h2e, v_fci, mol, dotscf, timestop, deltat, imp_i, V_imp_leads, kernel_mode = "plot", verbose = verbose);
+    timevals, observables= td.TimeProp(h1e, h2e, v_fci, mol, dotscf, timestop, deltat, imp_i, V_imp_leads, kernel_mode = "plot", verbose = verbose);
+    energyvals, currentvals, occvals, Szvals = observables
 
     # renormalize current
     currentvals = currentvals*np.pi/abs(V_bias);
@@ -132,7 +133,7 @@ def DotCurrentData(n_leads, nelecs, timestop, deltat, phys_params = None, prefix
         axes[0].plot(timevals, currentvals);
         axes[0].set_xlabel("time (dt = "+str(deltat)+")");
         axes[0].set_ylabel("J*$\pi / |V_{bias}|$");
-        axes[0].set_title("Dot impurity, 3 left sites, 2 right sites");
+        axes[0].set_title("Dot impurity, "+str(n_leads[0])+" left sites, "+str(n_leads[1])+" right sites");
         axes[1].plot(timevals, energyvals);
         axes[1].set_xlabel("time (dt = "+str(deltat)+")");
         axes[1].set_ylabel("$E/E_{i} - 1$");
@@ -489,10 +490,9 @@ def DotDataVsVgate():
         DotCurrentData(nleads, nelecs, tf, dt, mu, Vg, verbose = 5);
 
 
-def Test(dt = 0.01, tf = 1.0, verbose = 0):
+def Test(nleads, dt = 0.01, tf = 1.0, verbose = 0):
 
     # inputs for dot current data
-    nleads = (3,2);
     nelecs = (sum(nleads)+1, 0); # half filling
 
     # run with default physical params by not passing any
