@@ -92,7 +92,8 @@ def DotCurrentData(n_leads, nelecs, timestop, deltat, phys_params = None, prefix
         V_leads, V_imp_leads, V_bias, mu, V_gate, U, B, theta = phys_params;
     
     # get h1e and h2e for siam, h_imp = h_dot
-    ham_params = V_leads, 0.0, V_bias, mu, V_gate, U; # dot hopping turned off
+    V_imp_leads = 1e-6
+    ham_params = V_leads, V_imp_leads, V_bias, mu, V_gate, U; # dot hopping turned off
     h1e, h2e, hdot = siam.dot_hams(n_leads, n_imp_sites, nelecs, ham_params, verbose = verbose);
     
     if prep: # prep dot state w/ magntic field in direction nhat (theta, phi=0)

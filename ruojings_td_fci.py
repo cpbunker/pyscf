@@ -451,7 +451,7 @@ def Test(nleads, dt = 0.01, tf = 1.0, verbose = 0):
     # remember impurity is just one level dot
     
     # make ground state Hamiltonian with zero bias
-    td = 0.0
+    td = 1e-6
     if(verbose):
         print("1. Construct hamiltonian")
     h1e = np.zeros((norb,)*2)

@@ -16,11 +16,11 @@ import matplotlib.pyplot as plt
 #### replicate results from ruojing's code with siam_current module (ASU formalism)
 
 verbose = 5;
-nleads = (3,2);
+nleads = (2,1);
 
 #time info
 dt = 0.01;
-tf = 8.0;
+tf = 4.0;
 
 # run tests
 ruojings_td_fci.Test(nleads, dt = dt, tf = tf, verbose = verbose);
