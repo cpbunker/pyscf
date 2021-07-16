@@ -112,6 +112,7 @@ def compute_occ(site_i, d1, d2, mocoeffs, norbs, ASU = False):
         occ = np.zeros((norbs,norbs));
         occ[site_i,site_i] = 1; 
     else:
+        return;
         occ = np.zeros((norbs,norbs));
         occ[site_i,site_i] = 1; # spin up orb
         occ[site_i+1, site_i+1] = 1; # spin down orb
@@ -131,6 +132,7 @@ def compute_Sz(site_i, d1, d2, mocoeffs, norbs, ASU = False):
     if not ASU: # Sz meaningless in spin free context
         Sz = np.zeros((norbs,norbs));
     else:
+        return;
         Sz = np.zeros((norbs,norbs));
         Sz[site_i,site_i] = 1/2; # spin up
         Sz[site_i+1, site_i+1] = -1/2; # spin down
